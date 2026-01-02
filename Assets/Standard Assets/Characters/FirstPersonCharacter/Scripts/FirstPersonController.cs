@@ -14,6 +14,16 @@ namespace UnityStandardAssets.Characters.FirstPerson
         [SerializeField] private bool m_IsWalking;
         [SerializeField] private float m_WalkSpeed;
         [SerializeField] private float m_RunSpeed;
+        private float SetRunSpeed;
+        [SerializeField] float Stamina = 10.0f;
+        [SerializeField] float MaxStamina = 10.0f;
+        [SerializeField] int DecayRate = 1;
+        [SerializeField] float RefillRate = 0.25f;
+        [SerializeField] GameObject LightBreathing;
+        [SerializeField] GameObject HeavyBreathing;
+        private bool LightBreath = false;
+        private bool HeavyBreath = false;
+
         [SerializeField] [Range(0f, 1f)] private float m_RunstepLenghten;
         [SerializeField] private float m_JumpSpeed;
         [SerializeField] private float m_StickToGroundForce;
@@ -56,12 +66,72 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_Jumping = false;
             m_AudioSource = GetComponent<AudioSource>();
 			m_MouseLook.Init(transform , m_Camera.transform);
+            SetRunSpeed = m_RunSpeed;
+            LightBreathing.gameObject.SetActive(false);
+            HeavyBreathing.gameObject.SetActive(false);
         }
 
 
         // Update is called once per frame
         private void Update()
         {
+            Debug.Log(Stamina);
+            if(LightBreath == false)
+            {
+                if(Stamina < 3)
+                {
+                    LightBreathing.gameObject.SetActive(true);
+                    HeavyBreathing.gameObject.SetActive(false);
+                    LightBreath = true;
+                }
+            }
+            if (LightBreath == true)
+            {
+                if (Stamina > 3)
+                {
+                    LightBreathing.gameObject.SetActive(false);
+                    HeavyBreathing.gameObject.SetActive(false);
+                    LightBreath = false;
+                    m_RunSpeed = SetRunSpeed;
+                }
+            }
+            if (HeavyBreath == false)
+            {
+                if (Stamina < 1.5)
+                {
+                    LightBreathing.gameObject.SetActive(false);
+                    HeavyBreathing.gameObject.SetActive(true);
+                    HeavyBreath = true;
+                    m_RunSpeed = m_WalkSpeed;
+                }
+            }
+            if (HeavyBreath == true)
+            {
+                if (Stamina > 1.5)
+                {
+                    LightBreathing.gameObject.SetActive(false);
+                    HeavyBreathing.gameObject.SetActive(false);
+                    HeavyBreath = false;
+                }
+            }
+            if(Input.GetKey(KeyCode.LeftShift))
+            {
+                if(Stamina > 0.1)
+                {
+                    Stamina = Stamina - DecayRate * Time.deltaTime;
+                }
+            }
+            if (!Input.GetKey(KeyCode.LeftShift))
+            {
+                if (Stamina < MaxStamina)
+                {
+                    Stamina = Stamina + RefillRate * Time.deltaTime;
+                }
+            }
+            if(Stamina <= 0.1)
+            {
+                Stamina = 0.1f;
+            }
             RotateView();
             // the jump state needs to read here to make sure it is not missed
             if (!m_Jump)
@@ -72,7 +142,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
             if (!m_PreviouslyGrounded && m_CharacterController.isGrounded)
             {
                 StartCoroutine(m_JumpBob.DoBobCycle());
-                PlayLandingSound();
+                //PlayLandingSound();
                 m_MoveDir.y = 0f;
                 m_Jumping = false;
             }
@@ -169,12 +239,15 @@ namespace UnityStandardAssets.Characters.FirstPerson
             }
             // pick & play a random footstep sound from the array,
             // excluding sound at index 0
-            int n = Random.Range(1, m_FootstepSounds.Length);
-            m_AudioSource.clip = m_FootstepSounds[n];
-            m_AudioSource.PlayOneShot(m_AudioSource.clip);
-            // move picked sound to index 0 so it's not picked next time
-            m_FootstepSounds[n] = m_FootstepSounds[0];
-            m_FootstepSounds[0] = m_AudioSource.clip;
+            if (m_FootstepSounds.Length > 0)
+            {
+                int n = Random.Range(1, m_FootstepSounds.Length);
+                m_AudioSource.clip = m_FootstepSounds[n];
+                m_AudioSource.PlayOneShot(m_AudioSource.clip);
+                // move picked sound to index 0 so it's not picked next time
+                m_FootstepSounds[n] = m_FootstepSounds[0];
+                m_FootstepSounds[0] = m_AudioSource.clip;
+            }
         }
 
 
@@ -213,7 +286,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 #if !MOBILE_INPUT
             // On standalone builds, walk/run speed is modified by a key press.
             // keep track of whether or not the character is walking or running
-            m_IsWalking = !Input.GetKey(KeyCode.LeftShift);
+            m_IsWalking = !Input.GetKey(KeyCode.LeftShift);             
 #endif
             // set the desired speed to be walking or running
             speed = m_IsWalking ? m_WalkSpeed : m_RunSpeed;
@@ -257,4 +330,5 @@ namespace UnityStandardAssets.Characters.FirstPerson
             body.AddForceAtPosition(m_CharacterController.velocity*0.1f, hit.point, ForceMode.Impulse);
         }
     }
+
 }
